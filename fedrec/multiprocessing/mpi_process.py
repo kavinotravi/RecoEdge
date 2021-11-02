@@ -7,7 +7,18 @@ from mpi4py import MPI
 
 @registry.load("multiprocessing", "MPI")
 class MPIProcess:
+    """
+    Construct an MPI Process Manager for BaseTrainers
 
+    Attributes
+    ----------
+    trainer : BaseTrainer
+        An instance of the BaseTrainer
+    logger : logger
+        Logger Object
+    com_manager_config : dict
+        Communication of config manager stored as dictionary
+    """
     def __init__(self,
                  trainer: BaseTrainer,
                  logger,
