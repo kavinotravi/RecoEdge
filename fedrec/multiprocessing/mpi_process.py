@@ -1,8 +1,9 @@
 from typing import Dict
-from fedrec.utilities import registry
-from fedrec.trainers.base_trainer import BaseTrainer
+from fedrec.communications.messages import JobResponseMessage, JobSubmitMessage
+
 from fedrec.multiprocessing.jobber import Jobber
-from mpi4py import MPI
+from fedrec.python_executors.base_actor import BaseActor
+from fedrec.utilities import registry
 
 
 @registry.load("multiprocessing", "MPI")
@@ -20,15 +21,12 @@ class MPIProcess:
         Communication of config manager stored as dictionary
     """
     def __init__(self,
-                 trainer: BaseTrainer,
+                 worker: BaseActor,
                  logger,
                  com_manager_config: Dict) -> None:
-        self.pool = MPI.COMM_WORLD
-        self.rank = self.pool.Get_rank()
-        self.num_processes = self.pool.Get_size()
-        self.jobber = Jobber(trainer=trainer, logger=logger)
+        self.jobber = Jobber(worker=worker, logger=logger)
         self.process_comm_manager = registry.construct(
-            "comm_manager", config_dict=com_manager_config)
+            "communications", config_dict=com_manager_config)
 
     def run(self) -> None:
         """
@@ -36,17 +34,17 @@ class MPIProcess:
         Manager listens to the queue for messages, 
         executes the job request and publishes the results 
         in that order. It will stop listening after receiving
-        job_request with JOB_TYPE "STOP" 
+        job_request with job_type "STOP" 
         """
         while True:
-            job_request = self.process_comm_manager.receive_message()
-            if job_request.JOB_TYPE == "STOP":
+            job_request: JobSubmitMessage = self.process_comm_manager.receive_message()
+            if job_request.job_type == "STOP":
                 return
 
             result = self.jobber.run(job_request)
             self.publish(result)
 
-    def publish(self, job_result) -> None:
+    def publish(self, job_result: JobResponseMessage) -> None:
         """
         Publishes the result after executing the job request
         """
